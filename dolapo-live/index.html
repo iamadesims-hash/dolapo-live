@@ -90,8 +90,8 @@
   </div>
 
   <script>
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const SUPABASE_URL = 'NEXT_PUBLIC_SUPABASE_URL=https://txdbvsocyokbhozpertx.supabase.co';
+    const SUPABASE_ANON_KEY = 'NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4ZGJ2c29jeW9rYmhvenBlcnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NjU0ODcsImV4cCI6MjA5NTM0MTQ4N30.izyfjxZxI4L1l_cslD4_qO6gcGV-5jf1F8CyDfvkeWE';
     const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       realtime: { params: { heartbeat: 15000 } }
     });
