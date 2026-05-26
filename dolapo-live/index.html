@@ -6,16 +6,18 @@
   <title>Dolapo Live • Powered by Mux</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mux/mux-player" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     body { font-family: 'Inter', system_ui, sans-serif; }
     .live-dot { animation: pulse 2s infinite; }
     mux-player { width: 100%; aspect-ratio: 16/9; background: #000; }
+    .avatar { width: 32px; height: 32px; border-radius: 9999px; object-fit: cover; }
   </style>
 </head>
 <body class="bg-zinc-950 text-white">
-  <!-- Header (same as before) -->
+  <!-- Header -->
   <div class="bg-black border-b border-zinc-800 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -24,90 +26,100 @@
           <h1 class="text-2xl font-semibold tracking-tight">Dolapo Live</h1>
           <p class="text-emerald-400 text-sm flex items-center gap-1.5">
             <span class="inline-block w-3 h-3 bg-emerald-500 rounded-full live-dot"></span>
-            LIVE via Mux • Secure Proxy
+            LIVE • <span id="online-count">0</span> online
           </p>
         </div>
       </div>
-      <div class="flex items-center gap-6 text-sm">
-        <div class="flex items-center gap-2 bg-zinc-900 px-4 py-2 rounded-3xl">
-          <i class="fa-solid fa-users"></i>
-          <span id="viewer-count" class="font-medium">1,284</span> watching
-        </div>
-        <a href="https://x.com/iamadedsims17" target="_blank" class="flex items-center gap-2 bg-[#1DA1F2] hover:bg-[#1a8cd8] px-6 py-2 rounded-3xl font-medium transition">
-          <i class="fa-brands fa-x-twitter"></i> Follow on X
-        </a>
+      <div onclick="showProfileModal()" class="cursor-pointer flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-3xl">
+        <i class="fa-solid fa-user"></i>
+        <span id="current-username">Guest</span>
       </div>
     </div>
   </div>
 
   <div class="max-w-7xl mx-auto px-6 py-8 grid lg:grid-cols-12 gap-8">
     <div class="lg:col-span-8 space-y-6">
-      <div class="bg-black rounded-3xl overflow-hidden shadow-2xl border border-zinc-800">
+      <div class="bg-black rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 relative">
         <mux-player id="mux-player" stream-type="live" playback-id="" env-key="YOUR_MUX_ENV_KEY_HERE" muted auto-play></mux-player>
+        <div id="live-overlay" class="hidden absolute top-4 right-4 bg-red-600 text-white text-xs px-4 py-1.5 rounded-full font-medium flex items-center gap-2">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+          </span>
+          LIVE NOW
+        </div>
       </div>
 
-      <!-- Create Live Stream (now calls proxy) -->
+      <!-- Clean Create Stream Button -->
       <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-        <h3 class="font-semibold text-lg mb-4 flex items-center gap-2">
-          <i class="fa-solid fa-plus"></i> Create New Mux Live Stream
-        </h3>
-        <button onclick="createLiveStreamProxy()" 
+        <button onclick="createLiveStream()" 
                 class="w-full bg-emerald-500 hover:bg-emerald-600 py-4 rounded-3xl font-medium transition flex items-center justify-center gap-2">
-          <i class="fa-solid fa-bolt"></i>
-          CREATE LIVE STREAM (Secure)
+          <i class="fa-solid fa-bolt"></i> CREATE NEW LIVE STREAM
         </button>
       </div>
 
-      <!-- Stream Details -->
-      <div id="stream-details" class="hidden bg-zinc-900 rounded-3xl p-6 border border-emerald-500">
-        <h4 class="font-semibold mb-4">Live Stream Created Successfully</h4>
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between"><span class="text-zinc-400">Playback ID:</span> <span id="display-playback-id" class="font-mono"></span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">RTMP URL:</span> <span id="display-rtmp" class="font-mono"></span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Stream Key:</span> <span id="display-key" class="font-mono"></span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Status:</span> <span id="display-status" class="text-emerald-400"></span></div>
-        </div>
-        <div class="flex gap-3 mt-6">
-          <button onclick="copyToClipboard('rtmp')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-3xl text-sm">Copy RTMP</button>
-          <button onclick="copyToClipboard('key')" class="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-3xl text-sm">Copy Key</button>
-          <button onclick="loadCreatedStream()" class="flex-1 bg-emerald-500 hover:bg-emerald-600 py-3 rounded-3xl text-sm">Load in Player</button>
-        </div>
-      </div>
+      <div id="stream-details" class="hidden bg-zinc-900 rounded-3xl p-6 border border-emerald-500"></div>
     </div>
 
-    <!-- Sidebar (X Space + Chat) remains the same -->
+    <!-- Sidebar -->
     <div class="lg:col-span-4 space-y-6">
-      <!-- X Space card -->
       <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-        <div class="flex items-center gap-3 mb-4">
-          <i class="fa-solid fa-microphone-lines text-purple-400 text-2xl"></i>
-          <div>
-            <h3 class="font-semibold text-lg">Join the LIVE X Space</h3>
-            <p class="text-zinc-400 text-sm">Audio + real-time chat</p>
-          </div>
-        </div>
-        <a id="space-link" href="https://x.com/i/spaces/YOUR_SPACE_ID_HERE" target="_blank"
-           class="block w-full bg-purple-600 hover:bg-purple-700 text-center py-4 rounded-3xl font-medium transition flex items-center justify-center gap-2">
+        <a id="space-link" href="https://x.com/i/spaces/YOUR_SPACE_ID_HERE" target="_blank" class="block w-full bg-purple-600 hover:bg-purple-700 text-center py-4 rounded-3xl font-medium transition flex items-center justify-center gap-2">
           <i class="fa-solid fa-headset"></i> ENTER X SPACE NOW
         </a>
       </div>
 
-      <!-- Live Chat (same as before) -->
-      <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 h-[420px] flex flex-col">
-        <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-comments"></i> Live Chat</h3>
+      <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 h-[520px] flex flex-col">
+        <h3 class="font-semibold mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-comments"></i> Live Chat 
+          <span id="online-users" class="ml-auto text-emerald-400 text-xs"></span>
+        </h3>
         <div id="chat-messages" class="flex-1 overflow-y-auto text-sm space-y-4 pr-2"></div>
-        <div class="flex mt-4">
-          <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-zinc-800 border border-zinc-700 rounded-l-3xl px-5 py-3 text-sm focus:outline-none">
+        <div id="typing-indicator" class="text-xs text-emerald-400 h-5 px-2"></div>
+        <div class="flex mt-2 gap-2">
+          <input id="chat-input" type="text" placeholder="Type a message..." class="flex-1 bg-zinc-800 border border-zinc-700 rounded-l-3xl px-5 py-3 text-sm" onkeydown="handleTyping(event)">
           <button onclick="sendChatMessage()" class="bg-white text-zinc-950 px-8 rounded-r-3xl font-medium">Send</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Profile Modal (unchanged) -->
+  <div id="profile-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <!-- Same as previous version -->
+  </div>
+
   <script>
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      realtime: { params: { heartbeat: 15000 } }
+    });
+
+    let currentUser = null;
+    let username = 'Guest';
+    let avatarUrl = null;
+    let presenceChannel = null;
+    let typingTimeout = null;
     let currentStreamData = null;
 
-    async function createLiveStreamProxy() {
+    // Supabase Realtime Live Status Listener
+    function setupLiveStatusListener() {
+      supabase.channel('live-status')
+        .on('broadcast', { event: 'stream_status' }, (payload) => {
+          const { type, playback_id } = payload.payload;
+          if (type === 'video.live_stream.active' && playback_id) {
+            document.getElementById('live-overlay').classList.remove('hidden');
+            document.getElementById('mux-player').setAttribute('playback-id', playback_id);
+          } else if (type === 'video.live_stream.idle') {
+            document.getElementById('live-overlay').classList.add('hidden');
+          }
+        })
+        .subscribe();
+    }
+
+    // Create Real Live Stream (calls backend)
+    async function createLiveStream() {
       try {
         const response = await fetch('/api/create-stream', { method: 'POST' });
         if (!response.ok) throw new Error('Failed to create stream');
@@ -115,35 +127,38 @@
         const data = await response.json();
         currentStreamData = data;
 
-        document.getElementById('display-playback-id').textContent = data.playbackId;
-        document.getElementById('display-rtmp').textContent = data.rtmpUrl;
-        document.getElementById('display-key').textContent = data.streamKey;
-        document.getElementById('display-status').textContent = 'READY';
-
-        document.getElementById('stream-details').classList.remove('hidden');
-        alert('✅ Live stream created! Copy details and start streaming from OBS.');
+        // Show stream details
+        const details = document.getElementById('stream-details');
+        details.innerHTML = `
+          <h4 class="font-semibold mb-4">Live Stream Created</h4>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span class="text-zinc-400">Playback ID:</span> <span class="font-mono">${data.playbackId}</span></div>
+            <div class="flex justify-between"><span class="text-zinc-400">RTMP URL:</span> <span class="font-mono">${data.rtmpUrl}</span></div>
+            <div class="flex justify-between"><span class="text-zinc-400">Stream Key:</span> <span class="font-mono">${data.streamKey}</span></div>
+          </div>
+          <button onclick="copyStreamKey()" class="mt-6 w-full bg-emerald-500 py-3 rounded-3xl">Copy Stream Key to Clipboard</button>
+        `;
+        details.classList.remove('hidden');
       } catch (err) {
-        alert('Error: ' + err.message);
+        alert('Error creating stream. Make sure backend is deployed.');
       }
     }
 
-    function loadCreatedStream() {
-      if (!currentStreamData) return;
-      document.getElementById('mux-player').setAttribute('playback-id', currentStreamData.playbackId);
+    function copyStreamKey() {
+      navigator.clipboard.writeText(currentStreamData.streamKey);
+      alert('✅ Stream Key copied! Paste into OBS.');
     }
 
-    function copyToClipboard(type) {
-      let text = type === 'rtmp' ? document.getElementById('display-rtmp').textContent : document.getElementById('display-key').textContent;
-      navigator.clipboard.writeText(text);
-      alert('✅ Copied!');
-    }
+    // Keep all other functions (chat, presence, auth, avatar, etc.)
+    // ... (paste the full versions from previous responses)
 
-    // Chat, share, viewer count functions (same as previous versions)
-    function sendChatMessage() { /* ... */ }
-    function shareToX() { /* ... */ }
-    let count = 1284;
-    setInterval(() => { /* ... */ }, 7000);
-    window.onload = () => { /* demo messages */ };
+    window.onload = async () => {
+      await initAuth();
+      await loadInitialMessages();
+      subscribeToChat();
+      setupPresence();
+      setupLiveStatusListener();
+    };
   </script>
 </body>
 </html>
