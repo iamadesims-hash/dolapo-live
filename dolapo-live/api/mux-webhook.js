@@ -1,45 +1,58 @@
+import crypto from 'crypto';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const MUX_TOKEN_ID = process.env.MUX_TOKEN_ID;
-  const MUX_TOKEN_SECRET = process.env.MUX_TOKEN_SECRET;
+  const signatureHeader = req.headers['mux-signature'];
+  const rawBody = JSON.stringify(req.body); // Must use raw body
 
-  if (!MUX_TOKEN_ID || !MUX_TOKEN_SECRET) {
-    return res.status(500).json({ error: 'Mux credentials not configured on server' });
+  const MUX_WEBHOOK_SECRET = process.env.MUX_WEBHOOK_SECRET;
+
+  if (!MUX_WEBHOOK_SECRET) {
+    console.warn('Warning: Mux webhook secret not set');
+  } else if (signatureHeader) {
+    // Verify signature
+    const [tPart, v1Part] = signatureHeader.split(',');
+    const timestamp = tPart.replace('t=', '');
+    const receivedSignature = v1Part.replace('v1=', '');
+
+    const signedPayload = `${timestamp}.${rawBody}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', MUX_WEBHOOK_SECRET)
+      .update(signedPayload)
+      .digest('hex');
+
+    if (expectedSignature !== receivedSignature) {
+      console.error('Invalid Mux signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
   }
 
+  const event = req.body;
+  console.log(`✅ Verified Mux Webhook: ${event.type}`);
+
   try {
-    const response = await fetch('https://api.mux.com/video/v1/live-streams', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Basic ' + btoa(`${MUX_TOKEN_ID}:${MUX_TOKEN_SECRET}`)
-      },
-      body: JSON.stringify({
-        playback_policy: ["public"],
-        new_asset_settings: { playback_policy: ["public"] },
-        reconnect_window: 60
-      })
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    await supabase.channel('live-status').send({
+      type: 'broadcast',
+      event: 'stream_status',
+      payload: {
+        type: event.type,
+        playback_id: event.data?.playback_id,
+        timestamp: new Date().toISOString()
+      }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Mux API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const stream = data.data;
-
-    return res.status(200).json({
-      playbackId: stream.playback_ids[0].id,
-      rtmpUrl: stream.streams[0]?.url || 'rtmp://global-live.mux.com:5222/app',
-      streamKey: stream.stream_key,
-      status: stream.status
-    });
+    res.status(200).json({ received: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 }
