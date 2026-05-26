@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   try {
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL=https://txdbvsocyokbhozpertx.supabase.co,
+      process.env.YOUR_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
